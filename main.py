@@ -44,6 +44,7 @@ async def dynamic_cors_middleware(request, call_next):
         return response
     return await call_next(request)
 
+
 @app.get("/ping")
 async def ping():
     return "pong"

@@ -17,7 +17,7 @@ branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"]).s
 
 # Import the correct config file
 if branch == "main":
-    SQLALCHEMY_DATABASE_URL = "postgresql+psycopg2://postgres:han15680!@3.35.231.111:5432/postgres"
+    SQLALCHEMY_DATABASE_URL = "postgresql+psycopg2://postgres:han15680!@3.36.108.14:5432/postgres"
 else:
     SQLALCHEMY_DATABASE_URL = "postgresql+psycopg2://postgres@localhost:5432/postgres"
 
