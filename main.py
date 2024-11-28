@@ -1,3 +1,5 @@
+from urllib.request import Request
+
 from alembic.context import run_migrations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,26 +29,31 @@ async def startup_event():
         run_alembic_migration()
 
 
-# CORS middleware configuration
+localhost_regex = re.compile(r"^(http://localhost:\d+|https://thewell-academy.github.io)$")
+
+# Global CORS middleware for default behavior
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Temporarily set to allow all origins (will handle dynamically)
+    allow_origins=["*"],  # Allow all origins (temporary, overridden by dynamic middleware)
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods
     allow_headers=["*"],  # Allow all headers
 )
 
 
+# Dynamic CORS middleware
 @app.middleware("http")
-async def dynamic_cors_middleware(request, call_next):
+async def dynamic_cors_middleware(request: Request, call_next):
     origin = request.headers.get("origin")
+    response = await call_next(request)
+
+    # Check if the origin is allowed by the regex
     if origin and localhost_regex.match(origin):
-        response = await call_next(request)
-        response.headers.Access_Control_Allow_Origin = origin
-        response.headers.Access_Control_Allow_Methods = 'POST, GET, OPTIONS, PUT, DELETE'
-        response.headers.Access_Control_Allow_Headers = 'Authorization, Content-Type'
-        return response
-    return await call_next(request)
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS, PUT, DELETE"
+        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+    return response
 
 
 @app.get("/ping")
