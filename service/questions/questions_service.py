@@ -3,6 +3,7 @@ import base64
 import datetime
 import io
 import json
+import time
 import uuid
 from io import BytesIO
 from typing import Dict, List
@@ -71,7 +72,7 @@ async def answer_question(
             max_tokens=3000
         ).model_dump_json())
 
-        return_value = str(response['choices'][0]['message']['content'])
+        return_value = response['choices'][0]['message']['content']
 
         if return_value.startswith("1"):
             return_value = return_value[3:]
@@ -87,7 +88,7 @@ async def answer_question(
                     created_at=create_at
                 )
             )
-
+            print(return_value)
             return return_value
         else:
             return "이미지가 또렷하지 않은 것 같아요. 다시 한 번 찍어서 업로드 해주세요!"

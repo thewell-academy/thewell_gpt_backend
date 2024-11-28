@@ -5,6 +5,7 @@ from sqlmodel import Session, SQLModel
 from database.database import engine
 from database.models.question import Question
 from database.models.user import User
+from database.models.question_bank import QuestionBank
 
 
 async def create(item):

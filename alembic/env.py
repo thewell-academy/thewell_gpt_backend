@@ -36,6 +36,7 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 from database.models.question import Question
 from database.models.user import User
+from database.models.question_bank import QuestionBank
 
 target_metadata = Base.metadata
 

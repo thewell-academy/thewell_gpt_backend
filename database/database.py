@@ -1,7 +1,10 @@
 # 필요한 라이브러리 import하기
 import subprocess
 import os
+from contextlib import contextmanager
+
 from dotenv import load_dotenv
+
 load_dotenv()  # Load environment variables from .env file
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -39,7 +42,8 @@ def create_db_and_tables():
 def generate_revision():
     try:
         print("Generating Alembic revision...")
-        subprocess.run(["alembic", "revision", "--autogenerate", "-m", "Auto revision"], check=True, capture_output=True, text=True)
+        subprocess.run(["alembic", "revision", "--autogenerate", "-m", "Auto revision"], check=True,
+                       capture_output=True, text=True)
         print("Alembic revision generated successfully.")
     except subprocess.CalledProcessError as e:
         print(f"Error generating revision: {e}")
@@ -64,11 +68,11 @@ def check_model_changes():
     If differences are found, a migration will be triggered.
     """
     inspector = inspect(engine)
-    metadata = MetaData()
+    metadata = Base.metadata
     metadata.reflect(bind=engine)
 
     # Check if any of the tables or columns differ
-    model_tables = Base.metadata.tables
+    model_tables = metadata.tables
     db_tables = inspector.get_table_names()
 
     for table_name in model_tables:
@@ -93,6 +97,19 @@ def run_alembic_migration():
         try:
             print("Generating migration script...")
             # Generate alembic migration script
+
+            subprocess.run(
+                ["alembic", "stamp", "head"],
+                check=True,
+                capture_output=True,  # Capture output
+                text=True  # Output as text
+            )
+            subprocess.run(
+                ["alembic", "upgrade", "head"],
+                check=True,
+                capture_output=True,  # Capture output
+                text=True  # Output as text
+            )
             result = subprocess.run(
                 ["alembic", "revision", "--autogenerate", "-m", "Auto migration"],
                 check=True,
@@ -119,3 +136,16 @@ def run_alembic_migration():
             print(e.stderr)  # Print the stderr from the command
     else:
         print("No model changes detected. Skipping migration.")
+
+
+@contextmanager
+def get_db_session():
+    session = SessionLocal()
+    try:
+        yield session
+        session.commit()  # Commit the transaction
+    except Exception as e:
+        session.rollback()  # Rollback in case of an error
+        raise e
+    finally:
+        session.close()
