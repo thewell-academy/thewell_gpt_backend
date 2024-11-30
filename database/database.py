@@ -24,6 +24,8 @@ if branch == "main":
 else:
     SQLALCHEMY_DATABASE_URL = "postgresql+psycopg2://postgres@localhost:5432/postgres"
 
+SQLALCHEMY_DATABASE_URL = "postgresql+psycopg2://postgres@localhost:5432/postgres"
+
 # SQLAlchemy engine 생성하기
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL
