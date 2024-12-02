@@ -21,17 +21,14 @@ class QuestionBank(Base):
 
     subject: str = Column(String, nullable=False)
 
-    question_number: int = Column(Integer, nullable=False)
-    question_score: int = Column(Integer, nullable=False)
     question_type: str = Column(String, nullable=False)
-    question_text: str = Column(String, nullable=False)
-    question_script_dict: str = Column(String, nullable=False) # json dict
-    answer_option_list: str = Column(String, nullable=False)  # list
-
-    answer: int = Column(Integer, nullable=False)
-    memo: str = Column(String, nullable=True)
+    question_script_dict: str = Column(String, nullable=False)  # json dict
 
     file_data: bytes = Column(LargeBinary, nullable=True)  # Store file as binary data
+
+    question_numbers: str = Column(String, nullable=False)  # json dict
+
+    question_answer_json: str = Column(String, nullable=False)  # list
 
     valid: bool = Column(Boolean, nullable=True, default=True)
 
