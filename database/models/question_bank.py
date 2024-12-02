@@ -19,6 +19,8 @@ class QuestionBank(Base):
     exam_year: int = Column(Integer, nullable=False)
     exam_month: int = Column(Integer, nullable=False)
 
+    grade: str = Column(String, nullable=False, default="", server_default="")
+
     subject: str = Column(String, nullable=False)
 
     question_type: str = Column(String, nullable=False)

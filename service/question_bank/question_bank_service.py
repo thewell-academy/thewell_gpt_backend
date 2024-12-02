@@ -12,8 +12,6 @@ from database.models.question_bank import QuestionBank
 
 async def save_questions(body, file=None, replace=False):
 
-    print(body)
-
     question_id = body['questionId']
     question_type = body['questionType']
 
@@ -21,6 +19,8 @@ async def save_questions(body, file=None, replace=False):
     exam = body['questionModel']['defaultQuestionInfo']['exam']
     exam_year = body['questionModel']['defaultQuestionInfo']['examYear']
     exam_month = body['questionModel']['defaultQuestionInfo']['examMonth']
+
+    grade = body['questionModel']['defaultQuestionInfo']['grade']
 
     question_answer_json = body['questionModel']['answerOptionInfoList']
     question_numbers = ",".join(str(i['questionNumber']) for i in question_answer_json)
@@ -39,6 +39,7 @@ async def save_questions(body, file=None, replace=False):
         exam=exam,
         exam_year=exam_year,
         exam_month=exam_month,
+        grade=grade,
         subject=subject,
         question_type=question_type,
         question_script_dict=str(question_script_dict),
