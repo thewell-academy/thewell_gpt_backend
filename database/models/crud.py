@@ -3,9 +3,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel
 
 from database.database import engine
-from database.models.question import Question
+from database.models.user_question import UserQuestion
 from database.models.user import User
-from database.models.question_bank import QuestionBank
+from database.models.exam_question import ExamQuestion
 
 
 async def create(item):

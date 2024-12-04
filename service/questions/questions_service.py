@@ -19,7 +19,7 @@ from fastapi.responses import JSONResponse
 from service.questions.util import get_question_with_image, init_system_config
 from database.database import engine
 from database.models import crud
-from database.models.question import Question
+from database.models.user_question import UserQuestion
 from database.models.user import User
 from secret.secret import api_key
 
@@ -78,7 +78,7 @@ async def answer_question(
             return_value = return_value[3:]
 
             await crud.create(
-                Question(
+                UserQuestion(
                     id=f"{user_id}_{str(uuid.uuid4())}",
                     user_id=user_id,
                     subject=subject,
@@ -120,7 +120,7 @@ async def get_questions(user_id, subject, start, end):
         )).all()
 
         data = [
-            Question(
+            UserQuestion(
                 id=row.id,
                 user_id=row.user_id,
                 subject=row.subject,

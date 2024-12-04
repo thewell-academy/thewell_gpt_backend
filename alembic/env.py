@@ -34,9 +34,11 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-from database.models.question import Question
+from database.models.user_question import UserQuestion
 from database.models.user import User
-from database.models.question_bank import QuestionBank
+from database.models.exam_question import ExamQuestion
+from database.models.default_question_info import DefaultQuestionInfo
+from database.models.answer_option_info import AnswerOptionInfo
 
 target_metadata = Base.metadata
 

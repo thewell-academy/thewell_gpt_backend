@@ -11,8 +11,8 @@ from database.database import Base
 
 
 @dataclass
-class Question(Base):
-    __tablename__ = 'questions'
+class UserQuestion(Base):
+    __tablename__ = 'user_questions'
     id: str = Column(String, default=None, primary_key=True)
     user_id: str = Column(String, default=None, nullable=True)
     subject: str = Column(String, default=None, nullable=True)

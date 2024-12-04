@@ -138,14 +138,9 @@ def run_alembic_migration():
         print("No model changes detected. Skipping migration.")
 
 
-@contextmanager
-def get_db_session():
-    session = SessionLocal()
+def get_db():
+    db = SessionLocal()
     try:
-        yield session
-        session.commit()  # Commit the transaction
-    except Exception as e:
-        session.rollback()  # Rollback in case of an error
-        raise e
+        yield db
     finally:
-        session.close()
+        db.close()
