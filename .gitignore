@@ -1,0 +1,17 @@
+secret/secret.py
+
+# Ignore __pycache__ directories
+__pycache__/
+
+# Ignore all .pyc files
+*.pyc
+
+secret/__pycache__/
+
+.env
+
+alembic/versions/
+
+venv/
+
+*.log

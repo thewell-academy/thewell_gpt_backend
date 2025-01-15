@@ -1,0 +1,11 @@
+alembic==1.13.2
+fastapi==0.112.2
+openai==1.43.0
+pillow==10.4.0
+pydantic==2.8.2
+python-dotenv==1.0.1
+requests==2.32.3
+SQLAlchemy==2.0.34
+sqlmodel==0.0.22
+starlette==0.40.0
+fpdf~=1.7.2
