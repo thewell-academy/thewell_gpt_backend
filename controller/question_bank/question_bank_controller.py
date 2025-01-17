@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from starlette.responses import FileResponse
 
 from database.database import get_db
 from database.pydantic_models.pydantic_models import ExamQuestionCreate, QuestionRequest
@@ -35,7 +36,6 @@ async def create_upload_with_file(
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=400, detail=f"Invalid JSON in 'body': {str(e)}")
 
-    # Validate and parse the data using the Pydantic model
     try:
         question_request = QuestionRequest(**body_data)
     except ValidationError as e:
@@ -70,9 +70,6 @@ async def create_upload_without_file(
         question_request = QuestionRequest(**request_body)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-    print(''.join(question_request.question_model.answer_option_info_list[0].question_text.split('\n')))
-    return
 
     res = await save_exam_question(question_request, replace, db)
 
@@ -129,6 +126,12 @@ async def export_question(
     months = [int(i) for i in months.split(',')] if len(months) > 0 else []
     grades = grades.split(',')
 
-    return JSONResponse(await export_question_service(
-        subject, exam, selections, years, months, grades, db
-    ))
+    file_path = await export_question_service(
+            subject, exam, selections, years, months, grades, db
+        )
+
+    return FileResponse(
+        path=file_path,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        filename="output.docx",
+    )

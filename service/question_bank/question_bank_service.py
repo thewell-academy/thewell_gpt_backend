@@ -1,9 +1,11 @@
 import json
 import uuid
 from typing import Dict, List
+import os
 
 from docx import Document
-from docx.shared import Inches
+from docx.oxml.ns import qn
+from docx.shared import Inches, Pt
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from starlette import status
@@ -15,7 +17,7 @@ from database.pydantic_models.pydantic_models import ExamQuestionCreate, Questio
 from sqlalchemy.orm.attributes import flag_modified
 import uuid
 
-from service.question_bank.question_bank_util import TableFlowManager, get_big_text, get_big_text
+from service.question_bank.question_bank_util import TableFlowManager, get_passage_text, get_passage_text
 
 
 async def save_exam_question(question_request: QuestionRequest, replace: bool, db: Session):
@@ -215,12 +217,6 @@ async def export_question_service(
         for question in existing_question_query_result
     ]
 
-    # if not existing_question_list:
-    #     # If no questions exist, avoid creating an empty document
-    #     print("No questions available for the given filters.")
-    #     return []
-
-    # Create Document and configure section margins
     doc = Document()
 
     section = doc.sections[0]
@@ -229,19 +225,35 @@ async def export_question_service(
     section.left_margin = Inches(0.5)
     section.right_margin = Inches(0.5)
 
+    default_font_path = "default_font.ttf"  # Replace with your font file path
+    if not os.path.exists(default_font_path):
+        raise FileNotFoundError(f"Font file '{default_font_path}' not found in the working directory.")
+
+    # Update the Normal style
+    style = doc.styles['Normal']
+    font = style.font
+    font.size = Pt(8)  # Set font size to 9pt
+
+    # Set custom font using font file
+    font.name = 'CustomFont'  # Logical font name
+    font.element.rPr.rFonts.set(qn('w:ascii'), 'CustomFont')  # Applies to ASCII text
+    font.element.rPr.rFonts.set(qn('w:eastAsia'), 'CustomFont')  # Applies to East Asian text
+    font.element.rPr.rFonts.set(qn('w:hAnsi'), 'CustomFont')  # Applies to high ANSI text
+    font.element.rPr.rFonts.set(qn('w:cs'), 'CustomFont')  # Applies to complex scripts
+
     manager = TableFlowManager(
         doc,
         max_lines_per_cell=25,
         max_chars_per_line=70,
     )
 
-    print(f"exam question len: {len(existing_question_list)}")
-    for exam_question_class in existing_question_list:
-        big_text = get_big_text(exam_question_class)
+    for i, exam_question_class in enumerate(existing_question_list):
+        passage_text = get_passage_text(exam_question_class)
 
         manager.add_question(
-            big_text=big_text,
-            subquestions=[
+            question_number=i+1,
+            passage_text=passage_text,
+            subquestion_list=[
                 (
                     i.question_text,
                     [i.option1, i.option2, i.option3, i.option4, i.option5]
@@ -254,5 +266,5 @@ async def export_question_service(
     doc.save(output_file)
     print(f"Document saved as {output_file}")
 
-    return [i.question_content_text_map for i in existing_question_list]
+    return output_file
 

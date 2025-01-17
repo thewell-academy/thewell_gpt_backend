@@ -15,3 +15,5 @@ alembic/versions/
 venv/
 
 *.log
+
+*.ipynb

@@ -9,3 +9,6 @@ SQLAlchemy==2.0.34
 sqlmodel==0.0.22
 starlette==0.40.0
 fpdf~=1.7.2
+mathml2omml~=0.0.2
+lxml~=5.3.0
+latex2mathml~=3.77.0
