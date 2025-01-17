@@ -1,21 +1,40 @@
+import os
+import re
 from urllib.request import Request
 
-from alembic.context import run_migrations
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import re
 
-from controller.auth.auth_controller import auth
 from controller.admin.admin_controller import admin
+from controller.auth.auth_controller import auth
 from controller.question_bank.question_bank_controller import question_bank
 from controller.questions.questions_controller import question
 from controller.test.test_controller import test
 from database.database import create_db_and_tables, is_latest_migration_applied, \
-    check_model_changes, run_alembic_migration, generate_revision
+    check_model_changes, run_alembic_migration
 
 app = FastAPI()
 
 localhost_regex = re.compile(r"^http://(localhost|127\.0\.0\.1):\d+$")
+
+scheduler = BackgroundScheduler()
+
+
+def my_cron_job():
+    word_file_list = [i for i in os.listdir() if i.endswith(".docx")]
+    for word_file in word_file_list:
+        os.remove(word_file)
+
+
+scheduler.add_job(
+    my_cron_job,
+    CronTrigger(minute="*")
+)
+
+# Start the scheduler
+scheduler.start()
 
 
 @app.on_event("startup")
@@ -67,6 +86,11 @@ app.include_router(test)
 app.include_router(admin)
 
 app.include_router(question_bank)
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    scheduler.shutdown()
 
 
 @app.get("/ping")

@@ -39,6 +39,7 @@ from database.models.user import User
 from database.models.exam_question import ExamQuestion
 from database.models.default_question_info import DefaultQuestionInfo
 from database.models.answer_option_info import AnswerOptionInfo
+from database.models.subject_detail import SubjectDetail
 
 target_metadata = Base.metadata
 

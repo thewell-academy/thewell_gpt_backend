@@ -1,96 +1,104 @@
 import json
 import uuid
-from typing import Dict
+from typing import Dict, List
+import os
 
+from docx import Document
+from docx.oxml.ns import qn
+from docx.shared import Inches, Pt
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from starlette import status
-
-from database.database import engine, get_db
 from database.models.answer_option_info import AnswerOptionInfo
 from database.models.default_question_info import DefaultQuestionInfo
 from database.models.exam_question import ExamQuestion
-from database.pydantic_models.pydantic_models import ExamQuestionCreate
+from database.models.subject_detail import SubjectDetail
+from database.pydantic_models.pydantic_models import ExamQuestionCreate, QuestionRequest
+from sqlalchemy.orm.attributes import flag_modified
+import uuid
+
+from service.question_bank.question_bank_util import TableFlowManager, get_passage_text, get_passage_text
 
 
-async def save_exam_question(exam_question_data: ExamQuestionCreate, replace: bool, db: Session):
-    # Extract data from exam_question_data
-    subject = exam_question_data.subject
-    grade = exam_question_data.default_question_info.grade
-    exam = exam_question_data.default_question_info.exam
-    exam_year = exam_question_data.default_question_info.exam_year
-    exam_month = exam_question_data.default_question_info.exam_month
+async def save_exam_question(question_request: QuestionRequest, replace: bool, db: Session):
 
-    question_numbers_list = [str(i.question_number) for i in exam_question_data.answer_option_info_list]
-    question_numbers = ",".join(question_numbers_list) if question_numbers_list else ""
+    exam_question_data = question_request.question_model
 
-    # Check if the same question exists
-    exist = same_question_exists(exam, exam_year, exam_month, question_numbers, subject, grade, db)
+    try:
+        subject = exam_question_data.subject
+        grade = exam_question_data.default_question_info.grade
+        exam = exam_question_data.default_question_info.exam
+        exam_year = exam_question_data.default_question_info.exam_year
+        exam_month = exam_question_data.default_question_info.exam_month
 
-    if exist and replace:
-        existing_question = db.query(ExamQuestion).filter(ExamQuestion.id == exist).first()
-        if existing_question:
-            existing_question.valid = False
-            db.commit()
-            db.refresh(existing_question)
-        else:
-            # Handle case where the existing question is not found
+        question_numbers_list = [str(i.question_number) for i in exam_question_data.answer_option_info_list]
+        question_numbers = ",".join(question_numbers_list) if question_numbers_list else ""
+
+        exist = same_question_exists(exam, exam_year, exam_month, question_numbers, subject, grade, db)
+
+        if exist and replace:
+            existing_question = db.query(ExamQuestion).filter(ExamQuestion.id == exist).first()
+            if existing_question:
+                existing_question.valid = False
+                db.commit()
+                db.refresh(existing_question)
+            else:
+                return {
+                    "status_code": status.HTTP_200_OK,
+                    "detail": "Existing question not found."
+                }
+
+        if exist and not replace:
             return {
-                "status_code": status.HTTP_200_OK,
-                "detail": "Existing question not found."
+                "status_code": status.HTTP_203_NON_AUTHORITATIVE_INFORMATION,
             }
 
-    if exist and not replace:
-        return {
-            "status_code": status.HTTP_203_NON_AUTHORITATIVE_INFORMATION,
-        }
-
-    # Create DefaultQuestionInfo instance
-    db_default_info = DefaultQuestionInfo(
-        exam=exam_question_data.default_question_info.exam,
-        exam_year=exam_question_data.default_question_info.exam_year,
-        exam_month=exam_question_data.default_question_info.exam_month,
-        grade=exam_question_data.default_question_info.grade,
-        file_path=exam_question_data.default_question_info.file_path,
-        selected_file_bytes=exam_question_data.default_question_info.selected_file_bytes
-    )
-
-    # Create ExamQuestion instance
-    db_exam_question = ExamQuestion(
-        subject=exam_question_data.subject,
-        type=exam_question_data.type,
-        question_content_text_map=exam_question_data.question_content_text_map,
-        question_numbers=question_numbers,  # Now defined in the model
-        default_question_info=db_default_info  # Correct usage
-    )
-
-    # Create AnswerOptionInfo instances
-    for answer_option_data in exam_question_data.answer_option_info_list:
-        db_answer_option = AnswerOptionInfo(
-            question_number=answer_option_data.question_number,
-            question_score=answer_option_data.question_score,
-            question_text=answer_option_data.question_text,
-            option1=answer_option_data.options[0],
-            option2=answer_option_data.options[1],
-            option3=answer_option_data.options[2],
-            option4=answer_option_data.options[3],
-            option5=answer_option_data.options[4],
-            answer=answer_option_data.selected_answer,
-            memo=answer_option_data.memo
+        db_default_info = DefaultQuestionInfo(
+            exam=exam_question_data.default_question_info.exam,
+            exam_year=exam_question_data.default_question_info.exam_year,
+            exam_month=exam_question_data.default_question_info.exam_month,
+            grade=exam_question_data.default_question_info.grade,
+            file_path=exam_question_data.default_question_info.file_path,
+            selected_file_bytes=exam_question_data.default_question_info.selected_file_bytes
         )
-        db_exam_question.answer_option_info_list.append(db_answer_option)
 
-    # Add and commit to the database
-    db.add(db_exam_question)
-    db.commit()
-    db.refresh(db_exam_question)
-    return {
-        "status_code": status.HTTP_200_OK,
-    }
+        db_exam_question = ExamQuestion(
+            subject=exam_question_data.subject,
+            type=question_request.question_type,
+            question_content_text_map=exam_question_data.question_content_text_map,
+            question_numbers=question_numbers,  # Now defined in the model
+            default_question_info=db_default_info  # Correct usage
+        )
+
+        for answer_option_data in exam_question_data.answer_option_info_list:
+            db_answer_option = AnswerOptionInfo(
+                question_number=answer_option_data.question_number,
+                question_score=answer_option_data.question_score,
+                abc_option_list=answer_option_data.abc_option_list,
+                question_text=answer_option_data.question_text,
+                option1=answer_option_data.options[0],
+                option2=answer_option_data.options[1],
+                option3=answer_option_data.options[2],
+                option4=answer_option_data.options[3],
+                option5=answer_option_data.options[4],
+                answer=answer_option_data.selected_answer,
+                memo=answer_option_data.memo
+            )
+            db_exam_question.answer_option_info_list.append(db_answer_option)
+
+        db.add(db_exam_question)
+        db.commit()
+        db.refresh(db_exam_question)
+        return {
+            "status_code": status.HTTP_200_OK,
+        }
+    except Exception as e:
+        return {
+            "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR
+        }
 
 
 def same_question_exists(exam, exam_year, exam_month, question_numbers, subject, grade, db: Session):
-    # Ensure data types
     if not isinstance(exam_year, int):
         exam_year = int(exam_year)
     if not isinstance(exam_month, int):
@@ -112,3 +120,151 @@ def same_question_exists(exam, exam_year, exam_month, question_numbers, subject,
         return existing_question.id
     else:
         return None
+
+
+async def save_subject_details(subject: str, details: dict, db: Session, parent_id: int = None, path: str = ""):
+    for key, value in details.items():
+        current_path = f"{path} > {key}" if path else key
+
+        if isinstance(value, list):
+            value = {}
+
+        existing_node = db.query(SubjectDetail).filter_by(subject=subject, name=key, parent_id=parent_id).first()
+
+        if existing_node:
+            if isinstance(value, dict):
+                await save_subject_details(subject, value, db, existing_node.id, current_path)
+            else:
+                existing_node.value = value
+                db.commit()
+        else:
+            new_node = SubjectDetail(
+                subject=subject,
+                name=key,
+                parent_id=parent_id,
+                path=current_path,
+                value=None if isinstance(value, dict) else value,
+            )
+            db.add(new_node)
+            db.commit()
+            db.refresh(new_node)
+
+            if isinstance(value, dict):
+                await save_subject_details(subject, value, db, new_node.id, current_path)
+
+
+async def get_subject_details_data(subject: str, db: Session):
+    nodes = db.query(SubjectDetail).filter_by(subject=subject).all()
+
+    node_map = {node.id: node for node in nodes}
+
+    hierarchy = {}
+
+    for node in nodes:
+        current_entry = {}
+
+        if node.parent_id:
+            parent = node_map[node.parent_id]
+            parent_entry = hierarchy
+            for part in parent.path.split(" > "):
+                parent_entry = parent_entry.setdefault(part, {})
+            parent_entry[node.name] = current_entry
+        else:
+            hierarchy[node.name] = current_entry
+
+    return hierarchy
+
+
+async def delete_question(question_id, db: Session):
+    db.execute(text(f"DELETE FROM answer_option_infos WHERE exam_question_id = '{question_id}';"))
+    db.commit()
+    db.execute(text(f"DELETE FROM exam_questions WHERE id = '{question_id}';"))
+    db.commit()
+    db.execute(text(f"DELETE FROM default_question_infos WHERE id = '{question_id}';"))
+    db.commit()
+
+
+async def export_question_service(
+        subject: str,
+        exam: str,
+        selections: List[str],
+        years: List[int],
+        months: List[int],
+        grades: List[str],
+        db: Session
+):
+    if exam == "수능":
+        existing_question_query_result = db.query(ExamQuestion).join(DefaultQuestionInfo).filter(
+            ExamQuestion.valid == True,
+            ExamQuestion.subject == subject,
+            DefaultQuestionInfo.exam == exam,
+            ExamQuestion.type.in_(selections),
+            DefaultQuestionInfo.exam_year.in_(years),
+        ).all()
+    else:
+        existing_question_query_result = db.query(ExamQuestion).join(DefaultQuestionInfo).filter(
+            ExamQuestion.valid == True,
+            ExamQuestion.subject == subject,
+            DefaultQuestionInfo.exam == exam,
+            ExamQuestion.type.in_(selections),
+            DefaultQuestionInfo.exam_year.in_(years),
+            DefaultQuestionInfo.exam_month.in_(months),
+            DefaultQuestionInfo.grade.in_(grades),
+        ).all()
+
+    existing_question_list: List[ExamQuestion] = [
+        question() if isinstance(question, type) else question
+        for question in existing_question_query_result
+    ]
+
+    doc = Document()
+
+    section = doc.sections[0]
+    section.top_margin = Inches(0.5)
+    section.bottom_margin = Inches(0.5)
+    section.left_margin = Inches(0.5)
+    section.right_margin = Inches(0.5)
+
+    default_font_path = "default_font.ttf"  # Replace with your font file path
+    if not os.path.exists(default_font_path):
+        raise FileNotFoundError(f"Font file '{default_font_path}' not found in the working directory.")
+
+    # Update the Normal style
+    style = doc.styles['Normal']
+    font = style.font
+    font.size = Pt(8)  # Set font size to 9pt
+
+    # Set custom font using font file
+    font.name = 'CustomFont'  # Logical font name
+    font.element.rPr.rFonts.set(qn('w:ascii'), 'CustomFont')  # Applies to ASCII text
+    font.element.rPr.rFonts.set(qn('w:eastAsia'), 'CustomFont')  # Applies to East Asian text
+    font.element.rPr.rFonts.set(qn('w:hAnsi'), 'CustomFont')  # Applies to high ANSI text
+    font.element.rPr.rFonts.set(qn('w:cs'), 'CustomFont')  # Applies to complex scripts
+
+    manager = TableFlowManager(
+        doc,
+        max_lines_per_cell=25,
+        max_chars_per_line=70,
+    )
+
+    for i, exam_question_class in enumerate(existing_question_list):
+        passage_text = get_passage_text(exam_question_class)
+
+        manager.add_question(
+            question_number=i+1,
+            passage_text=passage_text,
+            subquestion_list=[
+                (
+                    i.question_text,
+                    [i.option1, i.option2, i.option3, i.option4, i.option5]
+                )
+                for i in exam_question_class.answer_option_info_list
+            ]
+        )
+
+    output_file = f"{str(uuid.uuid4())}.docx"
+    doc.save(output_file)
+    print(f"Document saved as {output_file}")
+
+    return output_file
+

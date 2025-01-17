@@ -24,3 +24,14 @@ class DefaultQuestionInfo(Base):
     selected_file_bytes = Column(LargeBinary, nullable=True)
 
     exam_question = relationship('ExamQuestion', back_populates='default_question_info', uselist=False)
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "exam": self.exam,
+            "exam_year": self.exam_year,
+            "exam_month": self.exam_month,
+            "grade": self.grade,
+            "file_path": self.file_path,
+            "selected_file_bytes": str(self.selected_file_bytes) if self.selected_file_bytes else None,
+        }

@@ -44,6 +44,7 @@ class AnswerOptionInfoBase(BaseModel):
 class AnswerOptionInfoCreate(BaseModel):
     question_number: int = Field(..., alias='questionNumber')
     question_score: int = Field(..., alias='questionScore')
+    abc_option_list: List[str] = Field(..., alias='abcOptionList')
     question_text: str = Field(..., alias='questionText')
     options: List[str] = Field(..., alias='options')
     selected_answer: int = Field(..., alias='selectedAnswer')

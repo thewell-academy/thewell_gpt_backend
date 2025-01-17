@@ -32,3 +32,15 @@ class ExamQuestion(Base):
         back_populates='exam_question',
         cascade='all, delete-orphan'
     )
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "subject": self.subject,
+            "type": self.type,
+            "valid": self.valid,
+            "question_content_text_map": self.question_content_text_map,
+            "question_numbers": self.question_numbers,
+            "default_question_info": self.default_question_info.to_json() if self.default_question_info else None,
+            "answer_option_info_list": [info.to_json() for info in self.answer_option_info_list],
+        }
