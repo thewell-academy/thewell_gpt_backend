@@ -176,12 +176,96 @@ async def get_subject_details_data(subject: str, db: Session):
 
 
 async def delete_question(question_id, db: Session):
-    db.execute(text(f"DELETE FROM answer_option_infos WHERE exam_question_id = '{question_id}';"))
+    exam_question = db.query(ExamQuestion).filter(ExamQuestion.id == question_id).first()
+
+    if not exam_question:
+        return {"message": "ExamQuestion not found"}
+
+    default_question_info_id = exam_question.default_question_info_id
+
+    db.delete(exam_question)
     db.commit()
-    db.execute(text(f"DELETE FROM exam_questions WHERE id = '{question_id}';"))
-    db.commit()
-    db.execute(text(f"DELETE FROM default_question_infos WHERE id = '{question_id}';"))
-    db.commit()
+
+    if default_question_info_id:
+        is_referenced = (
+            db.query(ExamQuestion)
+            .filter(ExamQuestion.default_question_info_id == default_question_info_id)
+            .count()
+        )
+
+        if is_referenced == 0:
+            default_question_info = db.query(DefaultQuestionInfo).filter(
+                DefaultQuestionInfo.id == default_question_info_id).first()
+            if default_question_info:
+                db.delete(default_question_info)
+                db.commit()
+
+    return {"message": "ExamQuestion and all related data deleted successfully"}
+
+from docx import Document
+from docx.shared import Inches, Pt
+from docx.enum.section import WD_SECTION_START
+
+
+def is_page_blank(paragraphs, tables):
+    """
+    Check if a collection of paragraphs and tables on a page is blank.
+    A page is considered blank if all paragraphs and tables only contain whitespace or are empty.
+    """
+    # Check paragraphs
+    for paragraph in paragraphs:
+        if paragraph.text.strip():  # If there's visible text, the page is not blank
+            return False
+
+    # Check tables
+    for table in tables:
+        for row in table.rows:
+            for cell in row.cells:
+                if any(paragraph.text.strip() for paragraph in cell.paragraphs):  # Check cell content
+                    return False
+
+    return True
+
+
+def remove_blank_pages(doc):
+    """
+    Removes blank pages from a Word document by identifying and excluding sections with no content.
+    """
+    # Create a new document to store non-blank content
+    new_doc = Document()
+
+    # Remove the default blank paragraph in the new document
+    if new_doc.paragraphs:
+        p = new_doc.paragraphs[0]
+        p._element.getparent().remove(p._element)
+
+    # Iterate over all paragraphs in the document
+    paragraphs = doc.paragraphs
+    tables = doc.tables
+
+    # Group content by sections/pages
+    current_page_content = {"paragraphs": [], "tables": []}
+    all_pages_content = []
+
+    for paragraph in paragraphs:
+        if paragraph.text.startswith("\f"):  # Page break indicator
+            # Store the current page content and start a new one
+            all_pages_content.append(current_page_content)
+            current_page_content = {"paragraphs": [], "tables": []}
+        else:
+            current_page_content["paragraphs"].append(paragraph)
+
+    # Append the last page's content
+    all_pages_content.append(current_page_content)
+
+    # Remove blank pages
+    for page_content in all_pages_content:
+        if not is_page_blank(page_content["paragraphs"], tables):
+            for paragraph in page_content["paragraphs"]:
+                new_p = new_doc.add_paragraph(paragraph.text)
+                new_p.style = paragraph.style
+
+    return new_doc
 
 
 async def export_question_service(
@@ -247,11 +331,11 @@ async def export_question_service(
         max_chars_per_line=70,
     )
 
+    answer_list = []
     for i, exam_question_class in enumerate(existing_question_list):
         passage_text = get_passage_text(exam_question_class)
 
         manager.add_question(
-            question_number=i+1,
             passage_text=passage_text,
             subquestion_list=[
                 (
@@ -259,12 +343,18 @@ async def export_question_service(
                     [i.option1, i.option2, i.option3, i.option4, i.option5]
                 )
                 for i in exam_question_class.answer_option_info_list
-            ]
+            ],
+            file_bytes=exam_question_class.default_question_info.selected_file_bytes
         )
+
+        for k in exam_question_class.answer_option_info_list:
+            answer_list.append(k.answer)
+
+    manager.add_answers([
+        (i + 1, answer) for i, answer in enumerate(answer_list)
+    ])
 
     output_file = f"{str(uuid.uuid4())}.docx"
     doc.save(output_file)
-    print(f"Document saved as {output_file}")
 
     return output_file
-

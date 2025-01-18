@@ -50,7 +50,7 @@ async def create_upload_with_file(
     if contents:
         exam_question_data.default_question_info.selected_file_bytes = contents
 
-    res = await save_exam_question(exam_question_data, replace, db)
+    res = await save_exam_question(question_request, replace, db)
 
     return JSONResponse(
         status_code=res['status_code'],
@@ -70,6 +70,8 @@ async def create_upload_without_file(
         question_request = QuestionRequest(**request_body)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    print(question_request)
 
     res = await save_exam_question(question_request, replace, db)
 
